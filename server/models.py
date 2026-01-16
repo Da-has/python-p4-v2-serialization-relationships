@@ -1,59 +1,61 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
-from sqlalchemy_serializer import SerializerMixin
 
-convention = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
+metadata = MetaData(naming_convention={
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s"
-}
-
-metadata = MetaData(naming_convention=convention)
+})
 
 db = SQLAlchemy(metadata=metadata)
 
 
-class Zookeeper(db.Model, SerializerMixin):
-    __tablename__ = 'zookeepers'
-
-    # don't forget that every tuple needs at least one comma!
-    serialize_rules = ('-animals.zookeeper',)
+class Employee(db.Model):
+    __tablename__ = 'employees'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True)
-    birthday = db.Column(db.Date)
+    name = db.Column(db.String)
+    hire_date = db.Column(db.Date)
 
-    animals = db.relationship('Animal', back_populates='zookeeper')
+    # Relationship mapping the employee to related reviews
+    reviews = db.relationship(
+        'Review', back_populates="employee", cascade='all, delete-orphan')
 
-
-class Enclosure(db.Model, SerializerMixin):
-    __tablename__ = 'enclosures'
-
-    serialize_rules = ('-animals.enclosure',)
-
-    id = db.Column(db.Integer, primary_key=True)
-    environment = db.Column(db.String)
-    open_to_visitors = db.Column(db.Boolean)
-
-    animals = db.relationship('Animal', back_populates='enclosure')
-
-
-class Animal(db.Model, SerializerMixin):
-    __tablename__ = 'animals'
-
-    serialize_rules = ('-zookeeper.animals', '-enclosure.animals',)
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True)
-    species = db.Column(db.String)
-
-    zookeeper_id = db.Column(db.Integer, db.ForeignKey('zookeepers.id'))
-    enclosure_id = db.Column(db.Integer, db.ForeignKey('enclosures.id'))
-
-    enclosure = db.relationship('Enclosure', back_populates='animals')
-    zookeeper = db.relationship('Zookeeper', back_populates='animals')
+    # Relationship mapping employee to related onboarding
+    onboarding = db.relationship(
+        'Onboarding', uselist=False, back_populates='employee', cascade='all, delete-orphan')
 
     def __repr__(self):
-        return f'<Animal {self.name}, a {self.species}>'
+        return f'<Employee {self.id}, {self.name}, {self.hire_date}>'
+
+
+class Onboarding(db.Model):
+    __tablename__ = 'onboardings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    orientation = db.Column(db.DateTime)
+    forms_complete = db.Column(db.Boolean, default=False)
+
+    # Foreign key to store the employee id
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
+
+    # Relationship mapping onboarding to related employee
+    employee = db.relationship('Employee', back_populates='onboarding')
+
+    def __repr__(self):
+        return f'<Onboarding {self.id}, {self.orientation}, {self.forms_complete}>'
+
+
+class Review(db.Model):
+    __tablename__ = 'reviews'
+
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer)
+    summary = db.Column(db.String)
+
+    # Foreign key to store the employee id
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
+
+    # Relationship mapping the review to related employee
+    employee = db.relationship('Employee', back_populates="reviews")
+
+    def __repr__(self):
+        return f'<Review {self.id}, {self.year}, {self.summary}>'
